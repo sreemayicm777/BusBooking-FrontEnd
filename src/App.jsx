@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Outlet, Link, useNavigate } from "react-router-dom";
+import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "./features/authSlice";
 import { motion, AnimatePresence } from "framer-motion";
@@ -10,6 +10,9 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const { user, role } = useSelector((state) => state.auth);
+  const location = useLocation();
+
+  const hideNavbarFooter = ["/", "/login", "/register"].includes(location.pathname);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -22,246 +25,274 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 text-gray-800 flex flex-col">
+    <div className="min-h-screen bg-[#FEF9F2] text-slate-800 flex flex-col">
       {/* Navigation */}
-      <nav className="bg-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <Link 
-              to="/" 
-              className="flex items-center space-x-2 font-bold text-indigo-900 text-xl"
-            >
-              <motion.div
-                whileHover={{ rotate: 10 }}
-                transition={{ type: "spring", stiffness: 300 }}
+      {!hideNavbarFooter && (
+        <nav className="sticky top-0 z-50 bg-white border-b border-red-100 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-20">
+              {/* Logo */}
+              <Link
+                to={user ? (role === "admin" ? "/admin/dashboard" : "/search") : "/"}
+                className="flex items-center space-x-3"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-                  <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1v-1h4.05a2.5 2.5 0 014.9 0H20a1 1 0 001-1v-5a1 1 0 00-.293-.707l-4-4A1 1 0 0016 4H3z" />
-                </svg>
-              </motion.div>
-              <span className="hidden sm:block">BusBooking</span>
-            </Link>
+                <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M7 17H2a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5" />
+                    <circle cx="7" cy="17" r="2" />
+                    <circle cx="17" cy="17" r="2" />
+                    <path d="M10 17h4" />
+                    <path d="M0 10h24" />
+                  </svg>
+                </div>
+                <span className="text-2xl font-black tracking-tighter text-slate-900 uppercase">
+                  Red<span className="text-red-600">Bus</span>
+                </span>
+              </Link>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-6">
-              {user ? (
-                <>
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2 bg-indigo-100 rounded-full py-1 px-3">
-                      <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-sm font-medium">
-                        {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              {/* Desktop Navigation */}
+              <div className="hidden md:flex items-center space-x-8">
+                {user ? (
+                  <>
+                    <div className="flex items-center space-x-6">
+                      <div className="flex items-center gap-3 bg-red-50 border border-red-100 rounded-full py-1.5 pl-1.5 pr-4">
+                        <div className="h-8 w-8 rounded-full bg-red-600 flex items-center justify-center text-white text-sm font-bold shadow-inner">
+                          {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-slate-900 leading-tight">{user.name}</span>
+                          <span className="text-[10px] text-red-600 uppercase font-black tracking-widest leading-tight">{role}</span>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-indigo-900">{user.name}</p>
-                        <p className="text-xs text-indigo-600 capitalize">{role}</p>
+
+                      <div className="flex items-center space-x-1">
+                        {role === 'admin' ? (
+                          <>
+                            <NavLink to="/admin/dashboard" label="Home" />
+                            <NavLink to="/admin/bookings" label="Bookings" />
+                            <NavLink to="/admin/users" label="Users" />
+                            <NavLink to="/create-bus" label="Add Bus" />
+                          </>
+                        ) : (
+                          <>
+                            <NavLink to="/search" label="Search" />
+                            <NavLink to="/my-bookings" label="My Trips" />
+                            <NavLink to="/booking-history" label="History" />
+                          </>
+                        )}
                       </div>
+
+                      <button
+                        onClick={handleLogout}
+                        className="bg-white hover:bg-red-50 border-2 border-red-600 text-red-600 px-5 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all active:scale-95"
+                      >
+                        Logout
+                      </button>
                     </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={handleLogout}
-                      className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
-                    >
-                      Logout
-                    </motion.button>
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-center space-x-4">
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Link 
-                      to="/login" 
-                      className="text-indigo-900 hover:text-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                  </>
+                ) : (
+                  <div className="flex items-center space-x-4">
+                    <Link
+                      to="/login"
+                      className="text-slate-600 hover:text-red-600 px-4 py-2 font-black uppercase tracking-widest text-xs transition-colors"
                     >
                       Login
                     </Link>
-                  </motion.div>
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Link 
-                      to="/register" 
-                      className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+                    <Link
+                      to="/register"
+                      className="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-red-200 transition-all active:scale-95"
                     >
                       Register
                     </Link>
-                  </motion.div>
-                </div>
-              )}
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="md:hidden">
-              <button
-                onClick={toggleMobileMenu}
-                className="inline-flex items-center justify-center p-2 rounded-md text-indigo-900 hover:text-indigo-700 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
-              >
-                <svg
-                  className="h-6 w-6"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  {isMobileMenuOpen ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  )}
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Navigation Menu */}
-        <AnimatePresence>
-          {isMobileMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="md:hidden bg-white border-t border-indigo-100"
-            >
-              <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                {user ? (
-                  <>
-                    <div className="flex items-center px-3 py-2">
-                      <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center text-white text-sm font-medium mr-3">
-                        {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-indigo-900">{user.name}</p>
-                        <p className="text-xs text-indigo-600 capitalize">{role}</p>
-                      </div>
-                    </div>
-                    <motion.button
-                      whileTap={{ scale: 0.95 }}
-                      onClick={handleLogout}
-                      className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-                    >
-                      Logout
-                    </motion.button>
-                  </>
-                ) : (
-                  <>
-                    <motion.div whileTap={{ scale: 0.95 }} className="block px-3 py-2 rounded-md text-base font-medium text-indigo-900 hover:bg-indigo-100">
-                      <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                        Login
-                      </Link>
-                    </motion.div>
-                    <motion.div whileTap={{ scale: 0.95 }} className="block px-3 py-2 rounded-md text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700">
-                      <Link to="/register" onClick={() => setIsMobileMenuOpen(false)}>
-                        Register
-                      </Link>
-                    </motion.div>
-                  </>
+                  </div>
                 )}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </nav>
+
+              {/* Mobile menu button */}
+              <div className="md:hidden">
+                <button
+                  onClick={toggleMobileMenu}
+                  className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 transition-all"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    {isMobileMenuOpen ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    )}
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile Navigation Menu */}
+          <AnimatePresence>
+            {isMobileMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="md:hidden bg-white border-b border-red-100 overflow-hidden"
+              >
+                <div className="px-4 pt-2 pb-6 space-y-1">
+                  {user ? (
+                    <>
+                      <div className="flex items-center p-4 bg-red-50 rounded-2xl mb-4 border border-red-100">
+                        <div className="h-12 w-12 rounded-2xl bg-red-600 flex items-center justify-center text-white text-xl font-bold mr-4">
+                          {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900">{user.name}</p>
+                          <p className="text-xs text-red-600 uppercase font-black tracking-widest">{role}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-1">
+                        {role === 'admin' ? (
+                          <>
+                            <MobileNavLink to="/admin/dashboard" label="Home" onClick={() => setIsMobileMenuOpen(false)} />
+                            <MobileNavLink to="/admin/bookings" label="Manage Bookings" onClick={() => setIsMobileMenuOpen(false)} />
+                            <MobileNavLink to="/admin/users" label="User Management" onClick={() => setIsMobileMenuOpen(false)} />
+                            <MobileNavLink to="/create-bus" label="Add New Bus" onClick={() => setIsMobileMenuOpen(false)} />
+                          </>
+                        ) : (
+                          <>
+                            <MobileNavLink to="/search" label="Find Buses" onClick={() => setIsMobileMenuOpen(false)} />
+                            <MobileNavLink to="/my-bookings" label="My Trips" onClick={() => setIsMobileMenuOpen(false)} />
+                            <MobileNavLink to="/booking-history" label="History" onClick={() => setIsMobileMenuOpen(false)} />
+                          </>
+                        )}
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center justify-center w-full mt-4 px-4 py-4 rounded-2xl bg-white text-red-600 font-black uppercase tracking-widest text-xs border-2 border-red-600"
+                        >
+                          Logout
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 pt-2">
+                      <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-center py-4 rounded-2xl bg-slate-50 text-slate-600 font-bold border border-slate-200">
+                        Login
+                      </Link>
+                      <Link to="/register" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-center py-4 rounded-2xl bg-red-600 text-white font-bold shadow-lg shadow-red-200">
+                        Register
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </nav>
+      )}
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow">
+      <main className="flex-grow">
         <Outlet />
       </main>
 
       {/* Footer */}
-      <footer className="bg-indigo-900 text-white mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {/* Company Info */}
-            <div className="col-span-1 lg:col-span-2">
-              <div className="flex items-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-                  <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1v-1h4.05a2.5 2.5 0 014.9 0H20a1 1 0 001-1v-5a1 1 0 00-.293-.707l-4-4A1 1 0 0016 4H3z" />
-                </svg>
-                <span className="text-xl font-bold">BusBooking</span>
+      {!hideNavbarFooter && (
+        <footer className="bg-white border-t border-red-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+              {/* Company Info */}
+              <div className="col-span-1 lg:col-span-2">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center shadow-lg shadow-red-200">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <span className="text-xl font-black text-slate-900 tracking-tighter uppercase">Red<span className="text-red-600">Bus</span> Platform</span>
+                </div>
+                <p className="text-slate-500 leading-relaxed max-w-sm mb-8 font-medium">
+                  The most reliable bus booking platform. Safe, fast, and comfortable journeys planned just for you.
+                </p>
+                <div className="flex space-x-5">
+                  <SocialIcon path="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" color="#DC2626" />
+                  <SocialIcon path="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z" color="#DC2626" />
+                </div>
               </div>
-              <p className="text-indigo-200 mb-4 max-w-md">
-                Your trusted partner for comfortable and reliable bus travel. Book your next journey with us and experience the difference.
+
+              {/* Links Sections */}
+              <div>
+                <h3 className="text-xs font-black text-slate-800 uppercase tracking-[0.2em] mb-6 border-l-4 border-red-600 pl-3">Quick Links</h3>
+                <ul className="space-y-4">
+                  <FooterLink label="Search Buses" to="/search" />
+                  <FooterLink label="My Bookings" to="/my-bookings" />
+                  <FooterLink label="Manage Account" to="#" />
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="text-xs font-black text-slate-800 uppercase tracking-[0.2em] mb-6 border-l-4 border-red-600 pl-3">Support</h3>
+                <ul className="space-y-4">
+                  <FooterLink label="Help Center" to="#" />
+                  <FooterLink label="Privacy Policy" to="#" />
+                  <FooterLink label="Terms & Conditions" to="#" />
+                </ul>
+              </div>
+            </div>
+
+            <div className="border-t border-red-50 mt-16 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                © {new Date().getFullYear()} RedBus Platform. All rights reserved.
               </p>
-              <div className="flex space-x-4">
-                <a href="#" className="text-indigo-300 hover:text-white transition-colors">
-                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" />
-                  </svg>
-                </a>
-                <a href="#" className="text-indigo-300 hover:text-white transition-colors">
-                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
-                  </svg>
-                </a>
-                <a href="#" className="text-indigo-300 hover:text-white transition-colors">
-                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path fillRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 2.525c.636-.247 1.363-.416 2.427-.465C8.901 2.013 9.256 2 11.685 2h.63zm-.081 1.802h-.468c-2.456 0-2.784.011-3.807.058-.975.045-1.504.207-1.857.344-.467.182-.8.398-1.15.748-.35.35-.566.683-.748 1.15-.137.353-.3.882-.344 1.857-.047 1.023-.058 1.351-.058 3.807v.468c0 2.456.011 2.784.058 3.807.045.975.207 1.504.344 1.857.182.466.399.8.748 1.15.35.35.683.566 1.15.748.353.137.882.3 1.857.344 1.054.048 1.37.058 4.041.058h.08c2.597 0 2.917-.01 3.96-.058.976-.045 1.505-.207 1.858-.344.466-.182.8-.398 1.15-.748.35-.35.566-.683.748-1.15.137-.353.3-.882.344-1.857.048-1.055.058-1.37.058-4.041v-.08c0-2.597-.01-2.917-.058-3.96-.045-.976-.207-1.505-.344-1.858a3.097 3.097 0 00-.748-1.15 3.098 3.098 0 00-1.15-.748c-.353-.137-.882-.3-1.857-.344-1.023-.047-1.351-.058-3.807-.058zM12 6.865a5.135 5.135 0 110 10.27 5.135 5.135 0 010-10.27zm0 1.802a3.333 3.333 0 100 6.666 3.333 3.333 0 000-6.666zm5.338-3.205a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z" clipRule="evenodd" />
-                  </svg>
-                </a>
+              <div className="flex items-center space-x-4">
+                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Server Online</span>
               </div>
             </div>
-
-            {/* Quick Links */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link to="/" className="text-indigo-300 hover:text-white transition-colors">Home</Link>
-                </li>
-                <li>
-                  <Link to="/buses" className="text-indigo-300 hover:text-white transition-colors">Browse Buses</Link>
-                </li>
-                <li>
-                  <Link to="/about" className="text-indigo-300 hover:text-white transition-colors">About Us</Link>
-                </li>
-                <li>
-                  <Link to="/contact" className="text-indigo-300 hover:text-white transition-colors">Contact</Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Contact Info */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Contact Us</h3>
-              <ul className="space-y-2">
-                <li className="flex items-start">
-                  <svg className="h-5 w-5 mr-2 mt-0.5 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <span className="text-indigo-300">123 Bus Street, Transport City</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="h-5 w-5 mr-2 mt-0.5 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                  <span className="text-indigo-300">+1 (555) 123-4567</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="h-5 w-5 mr-2 mt-0.5 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  <span className="text-indigo-300">support@busbooking.com</span>
-                </li>
-              </ul>
-            </div>
           </div>
-
-          {/* Bottom Bar */}
-          <div className="border-t border-indigo-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-indigo-300 text-sm">© {new Date().getFullYear()} BusBooking. All rights reserved.</p>
-            <div className="flex space-x-6 mt-4 md:mt-0">
-              <a href="#" className="text-indigo-300 hover:text-white text-sm transition-colors">Privacy Policy</a>
-              <a href="#" className="text-indigo-300 hover:text-white text-sm transition-colors">Terms of Service</a>
-              <a href="#" className="text-indigo-300 hover:text-white text-sm transition-colors">Cookie Policy</a>
-            </div>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
+  );
+}
+
+function NavLink({ to, label }) {
+  return (
+    <Link
+      to={to}
+      className="text-slate-600 hover:text-red-600 px-4 py-2 text-xs font-black uppercase tracking-widest transition-all relative group"
+    >
+      {label}
+      <span className="absolute bottom-0 left-4 right-4 h-1 bg-red-600 scale-x-0 group-hover:scale-x-100 transition-transform origin-left rounded-full"></span>
+    </Link>
+  );
+}
+
+function MobileNavLink({ to, label, onClick }) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className="block px-4 py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-600 hover:text-red-600 hover:bg-red-50 transition-all"
+    >
+      {label}
+    </Link>
+  );
+}
+
+function FooterLink({ label, to }) {
+  return (
+    <li>
+      <Link to={to} className="text-slate-500 hover:text-red-600 text-sm font-bold transition-colors">
+        {label}
+      </Link>
+    </li>
+  );
+}
+
+function SocialIcon({ path, color }) {
+  return (
+    <a href="#" className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 hover:text-red-600 hover:border-red-600 transition-all active:scale-95 group">
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={path} />
+      </svg>
+    </a>
   );
 }
 

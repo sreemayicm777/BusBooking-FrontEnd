@@ -1,367 +1,415 @@
-import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
 import axiosInstance from "../api/axiosInstance";
-import { motion } from "framer-motion";
+import { useParams, useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { motion, AnimatePresence } from "framer-motion";
 
 function UpdateBus() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [bus, setBus] = useState({
-    stopNames: [],
+  const { user } = useSelector((state) => state.auth);
+
+  const [basicInfo, setBasicInfo] = useState({
+    busName: "",
+    busNumber: "",
+    seatsAvailable: 0,
+    totalSeats: 0,
+    fare: 0,
+    isActive: true,
+  });
+
+  const [schedule, setSchedule] = useState({
     startDateTime: "",
     endDateTime: "",
-    seatsAvailable: 1,
-    isActive: true,
-    name: "",
-    busNumber: "",
-    busName: ""
   });
+
+  const [route, setRoute] = useState({
+    origin: "",
+    destination: "",
+  });
+
+  const [intermediateStops, setIntermediateStops] = useState([]);
   const [newStop, setNewStop] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchBus = async () => {
-      try {
-        setLoading(true);
-        const res = await axiosInstance.get(`/buses/${id}`);
-        const data = res.data;
-        setBus({
-          stopNames: data.stops.map((s) => s.name),
-          startDateTime: data.startDateTime,
-          endDateTime: data.endDateTime,
-          seatsAvailable: data.seatsAvailable,
-          isActive: data.isActive,
-          name: data.name || "",
-          busNumber: data.busNumber || "",
-          busName: data.busName || ""
+    if (!user || user.role !== "admin") {
+      navigate("/");
+    }
+    fetchBusDetails();
+  }, [id, user, navigate]);
+
+  const fetchBusDetails = async () => {
+    try {
+      const res = await axiosInstance.get(`/buses/${id}`);
+      const data = res.data;
+
+      setBasicInfo({
+        busName: data.busName || "",
+        busNumber: data.busNumber || "",
+        seatsAvailable: data.seatsAvailable || 0,
+        totalSeats: data.totalSeats || 0,
+        fare: data.fare || 450,
+        isActive: data.isActive ?? true,
+      });
+
+      setSchedule({
+        startDateTime: data.startDateTime ? new Date(data.startDateTime).toISOString().slice(0, 16) : "",
+        endDateTime: data.endDateTime ? new Date(data.endDateTime).toISOString().slice(0, 16) : "",
+      });
+
+      // Handle the stops array to extract origin, destination and intermediates
+      if (data.stops && data.stops.length >= 2) {
+        setRoute({
+          origin: data.stops[0].name,
+          destination: data.stops[data.stops.length - 1].name,
         });
-      } catch (err) {
-        setError("Failed to fetch bus details");
-        console.error("Failed to fetch bus:", err);
-      } finally {
-        setLoading(false);
+        setIntermediateStops(data.stops.slice(1, -1).map(s => s.name));
+      } else {
+        setRoute({ origin: data.from || "", destination: data.to || "" });
       }
-    };
 
-    fetchBus();
-  }, [id]);
+    } catch (err) {
+      setError("Failed to fetch fleet details.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleAddStop = () => {
+  const handleBasicChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setBasicInfo({
+      ...basicInfo,
+      [name]: type === "checkbox" ? checked : (type === "number" ? Number(value) : value),
+    });
+  };
+
+  const handleScheduleChange = (e) => {
+    setSchedule({ ...schedule, [e.target.name]: e.target.value });
+  };
+
+  const handleRouteChange = (e) => {
+    setRoute({ ...route, [e.target.name]: e.target.value });
+  };
+
+  const addIntermediateStop = () => {
     if (newStop.trim()) {
-      setBus({ ...bus, stopNames: [...bus.stopNames, newStop.trim()] });
+      setIntermediateStops([...intermediateStops, newStop.trim()]);
       setNewStop("");
     }
   };
 
-  const handleRemoveStop = (index) => {
-    if (bus.stopNames.length <= 1) {
-      setError("Bus must have at least one stop");
-      return;
-    }
-    const updated = [...bus.stopNames];
-    updated.splice(index, 1);
-    setBus({ ...bus, stopNames: updated });
-    setError("");
+  const removeIntermediateStop = (index) => {
+    setIntermediateStops(intermediateStops.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setUpdating(true);
     setError("");
-    
-    try {
-      const updatedBus = {
-        ...bus,
-        stops: bus.stopNames.map((name) => ({ name })),
-      };
-      delete updatedBus.stopNames;
+    setUpdating(true);
 
-      await axiosInstance.put(`/buses/${id}`, updatedBus);
-      navigate("/", { 
-        state: { 
-          message: "Bus updated successfully!",
-          busName: bus.name
-        }
-      });
+    const payload = {
+      ...basicInfo,
+      ...schedule,
+      stopNames: [route.origin.trim(), ...intermediateStops, route.destination.trim()],
+    };
+
+    try {
+      await axiosInstance.put(`/buses/${id}`, payload);
+      alert("Fleet data updated successfully!");
+      navigate("/");
     } catch (err) {
-      setError(err.response?.data?.message || "Update failed. Please try again.");
+      setError(err.response?.data?.message || "Update failed.");
     } finally {
       setUpdating(false);
     }
   };
 
-  const handleCancel = () => {
-    navigate(-1);
-  };
+  if (!user || user.role !== "admin") return null;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading bus details...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="min-h-screen bg-[#FEF9F2] flex flex-col items-center justify-center gap-4">
+      <div className="w-12 h-12 border-4 border-red-100 border-t-red-600 rounded-full animate-spin"></div>
+      <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Accessing Fleet Records...</p>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="bg-white rounded-2xl shadow-xl overflow-hidden p-6 md:p-8"
-        >
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">Update Bus</h2>
-              <button
-                onClick={handleCancel}
-                className="text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                bus.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-              }`}>
-                {bus.isActive ? (
-                  <>
-                    <svg className="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 8 8">
-                      <circle cx="4" cy="4" r="3" />
-                    </svg>
-                    Active
-                  </>
-                ) : (
-                  <>
-                    <svg className="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 8 8">
-                      <circle cx="4" cy="4" r="3" />
-                    </svg>
-                    Inactive
-                  </>
-                )}
-              </span>
-              <span className="text-sm text-gray-500">Bus ID: {id}</span>
-            </div>
+    <div className="min-h-screen bg-[#FEF9F2] p-4 md:p-8 pb-20 pt-10">
+      <div className="max-w-4xl mx-auto">
+        <header className="mb-12">
+          <button onClick={() => navigate(-1)} className="mb-6 flex items-center gap-2 text-slate-400 hover:text-red-600 transition-colors font-black uppercase tracking-widest text-[10px]">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
+            Back to Fleet
+          </button>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 border border-red-100 text-red-600 text-[10px] font-black uppercase tracking-widest mb-4">
+            <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+            Management Protocol
           </div>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic">Update <span className="text-red-600">Bus Unit</span></h1>
+          <p className="text-slate-500 text-[10px] mt-2 font-black uppercase tracking-[0.2em]">Modifying Identifier: <span className="text-slate-900 underline underline-offset-4 decoration-red-200">#{id.slice(-6).toUpperCase()}</span></p>
+        </header>
 
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="bg-red-50 border border-red-200 p-6 rounded-[2rem] text-red-600 text-[11px] font-black uppercase tracking-widest flex items-center gap-4 shadow-xl shadow-red-100/50"
+              >
+                <div className="w-10 h-10 bg-red-600 text-white rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" strokeWidth="3" /></svg>
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-700">{error}</p>
-                </div>
-              </div>
-            </div>
-          )}
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Bus Details */}
+          {/* Section 1: Basic Identity */}
+          <FormSection title="Unit Specifications" icon="🚐">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Bus Name
+              <InputField
+                label="Registry Name (Bus Name)"
+                name="busName"
+                value={basicInfo.busName}
+                onChange={handleBasicChange}
+                placeholder="e.g. Skyline Express"
+                required
+              />
+              <InputField
+                label="Serial Code (Bus Number)"
+                name="busNumber"
+                value={basicInfo.busNumber}
+                onChange={handleBasicChange}
+                placeholder="e.g. AC-X-999"
+                required
+              />
+              <InputField
+                label="Base Tariff (₹ Fare)"
+                name="fare"
+                value={basicInfo.fare}
+                onChange={handleBasicChange}
+                type="number"
+                placeholder="Enter Fare Amount"
+                required
+              />
+              <InputField
+                label="Total Capacity"
+                name="totalSeats"
+                value={basicInfo.totalSeats}
+                onChange={handleBasicChange}
+                type="number"
+                placeholder="Standard 40"
+                required
+              />
+              <InputField
+                label="Initial Availability"
+                name="seatsAvailable"
+                value={basicInfo.seatsAvailable}
+                onChange={handleBasicChange}
+                type="number"
+                placeholder="Remaining Seats"
+                required
+              />
+              <div className="flex items-center pt-8 px-2">
+                <label className="flex items-center cursor-pointer group">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      name="isActive"
+                      checked={basicInfo.isActive}
+                      onChange={handleBasicChange}
+                      className="sr-only"
+                    />
+                    <div className={`w-12 h-6 rounded-full transition-colors duration-200 border-2 ${basicInfo.isActive ? 'bg-red-600 border-red-700' : 'bg-slate-100 border-slate-200'}`}></div>
+                    <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ${basicInfo.isActive ? 'translate-x-6' : ''}`}></div>
+                  </div>
+                  <span className="ml-4 text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-red-600 transition-colors">Operational Status</span>
                 </label>
-                <input
-                  type="text"
-                  value={bus?.busName}
-                  onChange={(e) => setBus({ ...bus, busName: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Bus Number
-                </label>
-                <input
-                  type="text"
-                  value={bus.busNumber}
-                  onChange={(e) => setBus({ ...bus, busNumber: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                  required
-                />
               </div>
             </div>
+          </FormSection>
 
-            {/* Stops Management */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Route Stops
-              </label>
-              
-              <div className="flex gap-2 mb-3">
+          {/* Section 2: Route Configuration */}
+          <FormSection title="Flight Path (Route)" icon="📍">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+              <InputField
+                label="Departure Point (Origin)"
+                name="origin"
+                value={route.origin}
+                onChange={handleRouteChange}
+                placeholder="City A"
+                required
+              />
+              <InputField
+                label="Destination Hub (To)"
+                name="destination"
+                value={route.destination}
+                onChange={handleRouteChange}
+                placeholder="City B"
+                required
+              />
+            </div>
+
+            <div className="space-y-4">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Intermediate Waypoints</label>
+              <div className="flex gap-4">
                 <input
                   type="text"
                   value={newStop}
                   onChange={(e) => setNewStop(e.target.value)}
-                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                  placeholder="Enter stop name"
-                  disabled={!bus.isActive}
+                  placeholder="Add a stopover city"
+                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addIntermediateStop())}
+                  className="flex-grow bg-slate-50 border border-slate-200 text-slate-900 rounded-2xl py-4 px-6 focus:ring-2 focus:ring-red-500 outline-none transition-all placeholder:text-slate-400 font-bold"
                 />
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                <button
                   type="button"
-                  onClick={handleAddStop}
-                  disabled={!bus.isActive || !newStop.trim()}
-                  className={`px-4 py-2.5 rounded-lg font-medium transition-colors ${
-                    !bus.isActive || !newStop.trim()
-                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      : "bg-indigo-600 text-white hover:bg-indigo-700"
-                  }`}
+                  onClick={addIntermediateStop}
+                  className="bg-slate-900 text-white px-8 rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-red-600 transition-all shadow-lg active:scale-95"
                 >
-                  Add Stop
-                </motion.button>
+                  Add
+                </button>
               </div>
 
-              <div className="space-y-2">
-                {bus.stopNames.map((stop, idx) => (
-                  <div key={idx} className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-medium">
-                      {idx + 1}
-                    </div>
-                    <span className="flex-1 text-gray-900">{stop}</span>
+              <div className="flex flex-wrap gap-3 mt-6">
+                {intermediateStops.map((stop, index) => (
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    key={index}
+                    className="bg-white border-2 border-slate-100 text-slate-800 px-4 py-2 rounded-xl flex items-center gap-3 shadow-sm group hover:border-red-200 transition-colors"
+                  >
+                    <span className="text-[10px] font-black text-red-600">0{index + 1}</span>
+                    <span className="text-xs font-bold">{stop}</span>
                     <button
                       type="button"
-                      onClick={() => handleRemoveStop(idx)}
-                      disabled={!bus.isActive || bus.stopNames.length <= 1}
-                      className={`p-1 rounded transition-colors ${
-                        !bus.isActive || bus.stopNames.length <= 1
-                          ? "text-gray-400 cursor-not-allowed"
-                          : "text-red-500 hover:text-red-700"
-                      }`}
+                      onClick={() => removeIntermediateStop(index)}
+                      className="text-slate-300 hover:text-red-600 transition-colors"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     </button>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
-            </div>
 
-            {/* Date & Time */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Departure Date & Time
-                </label>
-                <input
-                  type="datetime-local"
-                  value={bus.startDateTime.slice(0, 16)}
-                  onChange={(e) => setBus({ ...bus, startDateTime: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                  disabled={!bus.isActive}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Arrival Date & Time
-                </label>
-                <input
-                  type="datetime-local"
-                  value={bus.endDateTime.slice(0, 16)}
-                  onChange={(e) => setBus({ ...bus, endDateTime: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                  disabled={!bus.isActive}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Seats & Status */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Seats Available
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={bus.seatsAvailable}
-                  onChange={(e) => setBus({ ...bus, seatsAvailable: Number(e.target.value) })}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                  disabled={!bus.isActive}
-                  required
-                />
-              </div>
-
-              <div className="flex items-center justify-start pt-6">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={bus.isActive}
-                    onChange={(e) => setBus({ ...bus, isActive: e.target.checked })}
-                    id="isActive"
-                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="isActive" className="ml-2 block text-sm text-gray-700">
-                    Bus is Active
-                  </label>
+              {/* Visualization */}
+              <div className="mt-8 p-6 bg-slate-50 rounded-3xl border border-slate-100 relative overflow-hidden">
+                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-2">
+                  <StopBadge label={route.origin || "START"} highlight />
+                  {intermediateStops.map((s, i) => (
+                    <React.Fragment key={i}>
+                      <div className="h-[2px] w-4 bg-slate-200 flex-shrink-0"></div>
+                      <StopBadge label={s} />
+                    </React.Fragment>
+                  ))}
+                  <div className="h-[2px] w-4 bg-slate-200 flex-shrink-0"></div>
+                  <StopBadge label={route.destination || "END"} highlight />
                 </div>
               </div>
             </div>
+          </FormSection>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col-reverse md:flex-row gap-4 pt-4">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                type="button"
-                onClick={handleCancel}
-                className="flex-1 bg-gray-200 text-gray-800 py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-              >
-                Cancel
-              </motion.button>
-              
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                type="submit"
-                disabled={updating}
-                className={`flex-1 py-3 px-4 rounded-lg text-white font-medium transition-colors flex items-center justify-center gap-2 ${
-                  updating ? "bg-indigo-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700"
-                }`}
-              >
-                {updating ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Updating Bus...
-                  </>
-                ) : (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Update Bus
-                  </>
-                )}
-              </motion.button>
+          {/* Section 3: Schedule */}
+          <FormSection title="Logistics (Schedule)" icon="⏰">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <InputField
+                label="Launch (Departure)"
+                name="startDateTime"
+                value={schedule.startDateTime}
+                onChange={handleScheduleChange}
+                type="datetime-local"
+                required
+              />
+              <InputField
+                label="Landing (Arrival)"
+                name="endDateTime"
+                value={schedule.endDateTime}
+                onChange={handleScheduleChange}
+                type="datetime-local"
+                required
+              />
             </div>
-          </form>
-        </motion.div>
+          </FormSection>
+
+          {/* Submit */}
+          <div className="pt-10 flex gap-4">
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="px-10 bg-white border-2 border-slate-100 text-slate-400 font-black uppercase tracking-widest text-[10px] rounded-[2rem] hover:bg-slate-50 transition-all"
+            >
+              Discard Changes
+            </button>
+            <button
+              type="submit"
+              disabled={updating}
+              className="flex-grow bg-slate-900 hover:bg-black text-white font-black uppercase tracking-[0.2em] text-[10px] py-6 rounded-[2rem] shadow-2xl shadow-slate-200 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-4 group"
+            >
+              {updating ? (
+                <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  <span>Persist Modifications</span>
+                  <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
+    </div>
+  );
+}
+
+function FormSection({ title, icon, children }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className="bg-white border border-red-50 p-8 md:p-12 rounded-[3.5rem] shadow-2xl shadow-red-900/5 relative overflow-hidden group"
+    >
+      <div className="absolute top-0 right-0 w-32 h-32 bg-red-50/30 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-700"></div>
+      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-12 flex items-center gap-5">
+        <span className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-slate-100 group-hover:bg-red-600 group-hover:text-white transition-all duration-300">{icon}</span>
+        {title}
+      </h3>
+      <div className="relative z-10">
+        {children}
+      </div>
+    </motion.div>
+  );
+}
+
+function InputField({ label, name, value, onChange, placeholder, type = "text", required = false }) {
+  return (
+    <div className="group relative">
+      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-2 group-focus-within:text-red-600 transition-colors">
+        {label}
+      </label>
+      <input
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        required={required}
+        className="w-full bg-[#FCFAF7] border-2 border-slate-50 text-slate-900 rounded-[2rem] py-5 px-8 focus:bg-white focus:border-red-600 focus:ring-4 focus:ring-red-50/50 outline-none transition-all placeholder:text-slate-300 font-bold text-sm shadow-sm"
+      />
+    </div>
+  );
+}
+
+function StopBadge({ label, highlight = false }) {
+  return (
+    <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-2 
+          ${highlight ? 'bg-red-600 border-red-700 text-white shadow-lg shadow-red-100' : 'bg-white border-slate-100 text-slate-500'}`}>
+      {label}
     </div>
   );
 }

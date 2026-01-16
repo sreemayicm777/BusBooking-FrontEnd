@@ -1,2 +1,54 @@
 @import "tailwindcss";
 
+@theme {
+  --color-primary-red: #DC2626;
+  --color-cream-bg: #FEF9F2;
+  --color-soft-white: #FFFFFF;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-[#FEF9F2] text-slate-800 antialiased;
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-[#FEF9F2];
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-red-200 rounded-full border-2 border-solid border-[#FEF9F2] hover:bg-red-300 transition-colors;
+}
+
+/* Red & Cream Utility Classes */
+.card-simple {
+  @apply bg-white border border-red-100 shadow-sm rounded-2xl;
+}
+
+.input-simple {
+  @apply bg-white border border-slate-200 text-slate-900 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all placeholder:text-slate-400 font-medium;
+}
+
+.text-red-primary {
+  @apply text-[#DC2626];
+}
+
+.bg-red-primary {
+  @apply bg-[#DC2626];
+}
+
+.btn-red {
+  @apply bg-[#DC2626] hover:bg-red-700 text-white font-bold shadow-md hover:shadow-lg transition-all active:scale-95;
+}
+
+.btn-outline-red {
+  @apply bg-white border-2 border-[#DC2626] text-[#DC2626] font-bold hover:bg-red-50 transition-all active:scale-95;
+}
